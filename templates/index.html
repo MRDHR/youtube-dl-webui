@@ -258,7 +258,7 @@
                 }
             },
             refresh: function (event) {
-                $.get("{{ '/dllist' }}", function (data) {
+                $.get("{{ '/downloadQueue' }}", function (data) {
                     vm.downloadQueue = data;
                     vm.downloadQueueData = [];
                     for (item in data) {
@@ -309,7 +309,7 @@
                 console.log(id)
                 var videoName = vm.getDownloadByID(id).canon;
                 console.log(videoName);
-                $.get("/youtube/remove/" + id, function (data) {
+                $.get("/remove?id=" + id, function (data) {
                     if (data == "OK") {
                         vm.showNotify('成功', '已删除扒源任务', vm.success);
                         vm.refresh()
@@ -320,7 +320,7 @@
                 var targetURL = false
                 targetURL = vm.getDownloadByID(id).url
                 if (targetURL) {
-                    $.get("/youtube/retry/" + id, function (data) {
+                    $.get("/retry?id=" + id, function (data) {
                         if (data == "OK") {
                             vm.showNotify('成功', '任务已开始重试', vm.success);
                             vm.refresh()
@@ -351,7 +351,7 @@
         },
         delimiters: ['[[', ']]'],
         mounted: function () {
-            this.getFolder("/video/");
+            this.getFolder("video");
             this.$nextTick(function () {
                 var progresspump = setInterval(function () {
                     vm.refresh()
