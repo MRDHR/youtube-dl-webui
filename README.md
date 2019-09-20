@@ -3,9 +3,11 @@ Modified according to [MyopicBadger's](https://github.com/MyopicBadger/guitube) 
 
 # Require
 tornado 6.0.3
+
 python3.6.8+
 
 # Usage
 python3 server.py
 
 # ScreenShoot
+![alt text](https://github.com/MRDHR/youtube-dl-webui/blob/master/screenshoot/screenshoot.png "界面截图")
