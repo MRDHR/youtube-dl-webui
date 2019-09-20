@@ -262,13 +262,16 @@
                     vm.downloadQueue = data;
                     vm.downloadQueueData = [];
                     for (item in data) {
-                        vm.downloadQueueData.push(data[item])
+                        vm.downloadQueueData.push(data[item]);
                     }
+                    setTimeout(function () {
+                        vm.refresh();
+                    }, 1000);
                 });
             },
             clearcompleted: function (event) {
                 $.get("{{ '/removeFinished' }}", function (data) {
-                    if (data == "OK") {
+                    if (data['state'] == "OK") {
                         vm.showNotify('成功', '已清空所有已完成的任务', vm.success);
                         vm.refresh()
                     }
@@ -283,19 +286,12 @@
                 for (item in vm.selectedOptions) {
                     vm.videoPaths += vm.selectedOptions[item] + "/";
                 }
-                console.log("URL");
-                console.log(vm.inputurl);
-                console.log(vm.videoPaths);
-                console.log(vm.videoNames);
-                console.log("Split");
-                console.log(vm.inputurl.split(" "));
                 vm.added.push(vm.inputurl.split(" "));
-                $.post("{{ '/videoAddProper' }}", {
-                    videourl: vm.inputurl,
+                $.post("{{ '/addToQueue' }}", {
+                    videoUrl: vm.inputurl,
                     videoPaths: vm.videoPaths,
                     videoNames: vm.videoNames
                 }, function (data) {
-                    console.log(data);
                     for (item in vm.added) {
                         vm.showNotify('成功', '扒源任务添加成功', vm.success);
                     }
@@ -306,11 +302,8 @@
                 vm.videoNames = "";
             },
             deleteQueue: function (id) {
-                console.log(id)
-                var videoName = vm.getDownloadByID(id).canon;
-                console.log(videoName);
                 $.get("/remove?id=" + id, function (data) {
-                    if (data == "OK") {
+                    if (data['state'] == "OK") {
                         vm.showNotify('成功', '已删除扒源任务', vm.success);
                         vm.refresh()
                     }
@@ -321,7 +314,7 @@
                 targetURL = vm.getDownloadByID(id).url
                 if (targetURL) {
                     $.get("/retry?id=" + id, function (data) {
-                        if (data == "OK") {
+                        if (data['state'] == "OK") {
                             vm.showNotify('成功', '任务已开始重试', vm.success);
                             vm.refresh()
                         }
@@ -352,11 +345,7 @@
         delimiters: ['[[', ']]'],
         mounted: function () {
             this.getFolder("video");
-            this.$nextTick(function () {
-                var progresspump = setInterval(function () {
-                    vm.refresh()
-                }, 2000);
-            });
+            this.refresh();
         },
         computed: {}
     });

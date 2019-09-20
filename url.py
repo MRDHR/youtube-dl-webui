@@ -3,12 +3,14 @@
 # the url structure of website
 
 from handlers.index import IndexHandler  # 假设已经有了
-from handlers.dllistctl import DownloadQueueHandler, GetFolderHandler, RemoveHandler, RetryHandler
+from handlers.dllistctl import DownloadQueueHandler, GetFolderHandler, RemoveHandler, RetryHandler, \
+    AddToDownloadQueueHandler
 
 url = [
     (r'/', IndexHandler),
     (r'/downloadQueue', DownloadQueueHandler),
     (r'/getFolder', GetFolderHandler),
     (r'/remove', RemoveHandler),
-    (r'/retry', RetryHandler)
+    (r'/retry', RetryHandler),
+    (r'/addToQueue', AddToDownloadQueueHandler)
 ]
