@@ -46,24 +46,29 @@ class DownloadQueueHandler(RequestHandler):
 jsonStr = ''
 
 
-# 获取文件夹列表json
-def fun(id, path):
-    global jsonStr
-    for i, fn in enumerate(glob.glob(path + os.sep + '*')):
-        if os.path.isdir(fn):
-            jsonStr += '{"id":"' + str(id) + '","name":"' + os.path.basename(fn) + '","children":['
-            id += 1
-            for j, li in enumerate(glob.glob(fn + os.sep + '*')):
-                if os.path.isdir(li):
-                    jsonStr += '{"id":"' + str(id) + '","name":"' + os.path.basename(li) + '","children":['
-                    id += 1
-                    fun(id, li)
-                    jsonStr += "]}"
-                    if j < len(glob.glob(fn + os.sep + '*')) - 1:
-                        jsonStr += ","
-            jsonStr += "]}"
-            if i < len(glob.glob(path + os.sep + '*')) - 1:
-                jsonStr += ","
+# 迭代生成目录树，用dict保存
+def createDict(path, root):
+    pathList = os.listdir(path)
+    for i, item in enumerate(pathList):
+        path = getJoinPath(path, item)
+        if isDir(path):
+            children = []
+            folder = {'name': item, 'children': children}
+            root.append(folder)
+            createDict(path, children)
+            path = '\\'.join(path.split('\\')[:-1])
+
+
+# 合并路径和目录，返回完整路径
+def getJoinPath(path, item):
+    return os.path.join(path, item)
+
+
+# 判断是否为目录
+def isDir(path):
+    if os.path.isdir(path):
+        return True
+    return False
 
 
 # 清空空数据
@@ -78,19 +83,11 @@ def clean_empty(d):
 # 获取文件夹列表
 class GetFolderHandler(RequestHandler):
     def post(self):
-        global jsonStr
         folderName = self.get_argument('folderName')
-        id = 0
-        jsonStr = '['
-        fun(id, folderName)
-        jsonStr += "]"
-        jsonStr = jsonStr.replace('},]', '}]')
-        jsonStr = jsonStr.replace('\n', '').replace('\n', '')
-        jsonStr = jsonStr.replace('\r', '').replace('\r', '')
-        jsonStr = jsonStr.replace("\t", "").strip()
-        dictMap = json.loads(jsonStr)
-        dictMap = clean_empty(dictMap)
-        chunk = escape.json_encode(dictMap)
+        root = []
+        createDict(folderName, root)
+        root = clean_empty(root)
+        chunk = escape.json_encode(root)
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.finish(chunk)
 
@@ -201,9 +198,6 @@ def generateNewID():
 # 获取队列的下一个为查询中的item
 def getNextQueuedItem():
     saveDownloadQueue()
-    # nextItem = getNextStartedItem()
-    # if nextItem != "NONE":
-    #     return nextItem
     for url in downloadQueue.keys():
         if downloadQueue[url]["status"] == "queued":
             return downloadQueue[url]

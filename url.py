@@ -2,9 +2,9 @@
 # coding=utf-8
 # the url structure of website
 
-from handlers.index import IndexHandler  # 假设已经有了
+from handlers.index import IndexHandler
 from handlers.dllistctl import DownloadQueueHandler, GetFolderHandler, RemoveHandler, RetryHandler, \
-    AddToDownloadQueueHandler
+    AddToDownloadQueueHandler, ClearCompleteHandler
 
 url = [
     (r'/', IndexHandler),
@@ -12,5 +12,6 @@ url = [
     (r'/getFolder', GetFolderHandler),
     (r'/remove', RemoveHandler),
     (r'/retry', RetryHandler),
-    (r'/addToQueue', AddToDownloadQueueHandler)
+    (r'/addToQueue', AddToDownloadQueueHandler),
+    (r'/removeFinished', ClearCompleteHandler)
 ]
