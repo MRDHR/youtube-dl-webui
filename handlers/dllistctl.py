@@ -43,9 +43,6 @@ class DownloadQueueHandler(RequestHandler):
         self.finish(chunk)
 
 
-jsonStr = ''
-
-
 # 迭代生成目录树，用dict保存
 def createDict(path, root):
     pathList = os.listdir(path)
