@@ -13,19 +13,10 @@ from tornado.concurrent import run_on_executor
 from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
-downloadQueue = {}
-dumbSaveFileName = "tmp/queue.temp"
-jsonSaveFileName = "tmp/queue.json"
-savedDownloadQueueFile = os.path.join(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)), jsonSaveFileName
-)
-dumbSaveFile = os.path.join(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)), dumbSaveFileName
-)
+downloadQueue = []
 downloadFormatString = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
 currentDownloadPercent = 0
 youtubelocation = "."
-currentDownloadUrl = ""
 idCounter = 0
 
 
@@ -35,9 +26,9 @@ class DownloadQueueHandler(RequestHandler):
         global downloadQueue
         # Manually stringify the error object if there is one,
         # because apparently jsonify can't do it automatically
-        for url in downloadQueue.keys():
-            if downloadQueue[url]["status"] == "error":
-                downloadQueue[url]["error"] = str(downloadQueue[url]["error"])
+        for mission in downloadQueue:
+            if mission["status"] == "error":
+                mission["error"] = str(mission["error"])
         chunk = escape.json_encode(downloadQueue)
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.finish(chunk)
@@ -95,12 +86,11 @@ class RemoveHandler(RequestHandler):
         global downloadQueue
         result = '{"state":"ERR"}'
         id = self.get_query_argument('id')
-        for url in downloadQueue.keys():
-            if str(downloadQueue[url]["id"]) == id:
-                if (downloadQueue[url]["status"] != "downloading"
-                        or downloadQueue[url]["status"] != "finished"):
-                    del downloadQueue[url]
-                    saveDownloadQueue()
+        for mission in downloadQueue:
+            if str(mission["id"]) == id:
+                if (mission["status"] != "downloading"
+                        or mission["status"] != "finished"):
+                    del mission
                     result = '{"state":"OK"}'
                     break
         self.set_header("Content-Type", "application/json; charset=UTF-8")
@@ -115,13 +105,10 @@ class RetryHandler(RequestHandler):
         result = '{"state":"ERR"}'
         global downloadQueue
         id = self.get_query_argument('id')
-        for url in downloadQueue.keys():
-            if downloadQueue[url]["id"] == id:
-                if (
-                        downloadQueue[url]["status"] != "downloading"
-                        or downloadQueue[url]["status"] != "finished"
-                ):
-                    downloadQueue[url]["status"] = "queued"
+        for mission in downloadQueue:
+            if mission["id"] == id:
+                if (mission["status"] != "downloading" or mission["status"] != "finished"):
+                    mission["status"] = "queued"
                     IOLoop.instance().add_callback(self.fireDownloadThread)
                     result = '{"state":"OK"}'
                     break
@@ -140,11 +127,10 @@ class ClearCompleteHandler(RequestHandler):
     def get(self):
         global downloadQueue
         newDownloadQueue = copy.copy(downloadQueue)
-        for url in downloadQueue.keys():
-            if downloadQueue[url]["status"] == "completed":
-                del newDownloadQueue[url]
+        for mission in downloadQueue:
+            if mission["status"] == "completed":
+                del mission
         downloadQueue = newDownloadQueue
-        saveDownloadQueue()
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.finish('{"state":"OK"}')
 
@@ -156,22 +142,22 @@ class AddToDownloadQueueHandler(RequestHandler):
     def post(self):
         global idCounter
         global downloadQueue
-        url = self.get_argument('videoUrl')
-        path = self.get_argument('videoPaths')
-        name = self.get_argument('videoNames')
+        url = self.get_argument('url')
+        path = self.get_argument('videoPath')
+        name = self.get_argument('videoName')
         for subURL in url.split():
             idCounter = idCounter + 1
-            downloadQueue[subURL] = dict(
+            downloadQueue.append(dict(
                 [
                     ("status", "queued"),
                     ("url", subURL),
                     ("id", "id_" + generateNewID()),
                     ("mode", "video"),
                     ("path", path),
-                    ("name", name)
+                    ("name", name),
+                    ("percent", 0)
                 ]
-            )
-        saveDownloadQueue()
+            ))
         IOLoop.instance().add_callback(self.fireDownloadThread)
 
         chunk = escape.json_encode(downloadQueue)
@@ -194,36 +180,33 @@ def generateNewID():
 
 # 获取队列的下一个为查询中的item
 def getNextQueuedItem():
-    saveDownloadQueue()
-    for url in downloadQueue.keys():
-        if downloadQueue[url]["status"] == "queued":
-            return downloadQueue[url]
+    for mission in downloadQueue:
+        if mission["status"] == "queued":
+            return mission
     return "NONE"
 
 
 # 开始下载
 def doDownload():
     global downloadQueue
-    global currentDownloadUrl
     print(downloadFormatString)
     nextUrl = getNextQueuedItem()
     if nextUrl != "NONE":
         ydl_opts = {
             "logger": MyLogger(),
-            "progress_hooks": [MyHook(downloadQueue[nextUrl["url"]]["id"]).hook],
+            "progress_hooks": [MyHook(nextUrl["id"]).hook],
             "prefer_ffmpeg": True,
             "restrictfilenames": False,
             "format": downloadFormatString,
             "outtmpl": ""
         }
-        currentDownloadUrl = nextUrl["url"]
         path = nextUrl["path"]
         name = nextUrl["name"]
         if name != "NONE" and name != "":
             ydl_opts['outtmpl'] = path + name
         else:
             ydl_opts['outtmpl'] = path + '%(title)s-%(id)s.%(ext)s'
-        print("proceeding to " + currentDownloadUrl)
+        print("proceeding to " + nextUrl["url"])
         try:
             # there's a bug where this will error if your download folder is inside your application folder
             os.chdir(youtubelocation)
@@ -263,8 +246,8 @@ class MyHook:
     def hook(self, d):
         global currentDownloadPercent
         global downloadQueue
-        for url in downloadQueue.keys():
-            if str(downloadQueue[url]["id"]) == self.tid:
+        for mission in downloadQueue:
+            if str(mission["id"]) == self.tid:
                 if d["status"] == "finished":
                     print("Done downloading, now converting ...")
                     os.utime(d.get("filename", ""))
@@ -273,34 +256,14 @@ class MyHook:
                     currentDownloadPercent = (int(d.get("downloaded_bytes", 0)) * 100) / int(
                         d.get("total_bytes", d.get("downloaded_bytes", 100))
                     )
-                    downloadQueue[url]["filename"] = d.get("filename", "?")
-                    downloadQueue[url]["tbytes"] = d.get(
+                    mission["filename"] = d.get("filename", "?")
+                    mission["tbytes"] = d.get(
                         "_total_bytes_str", d.get("downloaded_bytes", 0)
                     )
-                    downloadQueue[url]["dbytes"] = d.get("downloaded_bytes", 0)
-                    downloadQueue[url]["time"] = d.get("elapsed", "?")
-                    downloadQueue[url]["speed"] = d.get('_speed_str', '?')
-                downloadQueue[url]['eta'] = d.get('_eta_str', '?')
-                downloadQueue[url]["canon"] = d.get("filename", url)
-                downloadQueue[url]["status"] = d.get("status", "?")
-                downloadQueue[url]["percent"] = currentDownloadPercent
-
-
-# 保存下载列表
-def saveDownloadQueue():
-    global downloadQueue
-    dumbSave()
-    try:
-        with open(savedDownloadQueueFile, "w") as savefile:
-            print("Saving: " + str(os.path.abspath(savedDownloadQueueFile)))
-            json.dump(downloadQueue, savefile)
-    except TypeError:
-        for url in downloadQueue.keys():
-            downloadQueue[url]["status"] == str(downloadQueue[url]["status"])
-
-
-# 保存dumb
-def dumbSave():
-    with open(dumbSaveFile, "w") as savefile2:
-        for url in downloadQueue.keys():
-            print(url, file=savefile2)
+                    mission["dbytes"] = d.get("downloaded_bytes", 0)
+                    mission["time"] = d.get("elapsed", "?")
+                    mission["speed"] = d.get('_speed_str', '?')
+                mission['eta'] = d.get('_eta_str', '?')
+                mission["canon"] = d.get("filename", mission["url"])
+                mission["status"] = d.get("status", "?")
+                mission["percent"] = currentDownloadPercent
