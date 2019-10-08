@@ -16,7 +16,6 @@ from tornado.web import RequestHandler
 downloadQueue = []
 downloadFormatString = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
 currentDownloadPercent = 0
-youtubelocation = "."
 idCounter = 0
 jsonStr = ''
 
@@ -25,8 +24,6 @@ jsonStr = ''
 class DownloadQueueHandler(RequestHandler):
     def get(self):
         global downloadQueue
-        # Manually stringify the error object if there is one,
-        # because apparently jsonify can't do it automatically
         for mission in downloadQueue:
             if mission["status"] == "error":
                 mission["error"] = str(mission["error"])
@@ -111,7 +108,7 @@ class RetryHandler(RequestHandler):
         id = self.get_query_argument('id')
         for mission in downloadQueue:
             if mission["id"] == id:
-                if (mission["status"] != "downloading" or mission["status"] != "finished"):
+                if mission["status"] != "downloading" or mission["status"] != "finished":
                     mission["status"] = "queued"
                     IOLoop.instance().add_callback(self.fireDownloadThread)
                     result = '{"state":"OK"}'
@@ -128,6 +125,7 @@ class RetryHandler(RequestHandler):
 
 # 清空已完成
 class ClearCompleteHandler(RequestHandler):
+
     def get(self):
         global downloadQueue
         newDownloadQueue = copy.copy(downloadQueue)
@@ -164,9 +162,8 @@ class AddToDownloadQueueHandler(RequestHandler):
             ))
         IOLoop.instance().add_callback(self.fireDownloadThread)
 
-        chunk = escape.json_encode(downloadQueue)
         self.set_header("Content-Type", "application/json; charset=UTF-8")
-        self.finish(chunk)
+        self.finish('{"state":"OK"}')
 
     # 激活下载
     @run_on_executor
@@ -211,13 +208,14 @@ def doDownload():
         else:
             ydl_opts['outtmpl'] = path + '%(title)s-%(id)s.%(ext)s'
         print("proceeding to " + nextUrl["url"])
+        print("path+name = " + (path + name))
         try:
-            # there's a bug where this will error if your download folder is inside your application folder
-            os.chdir(youtubelocation)
             nextUrl["mode"] = "youtube"
             with youtube_dl.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([nextUrl["url"]])
             nextUrl["status"] = "completed"
+            # 将video的所有人的权限改为可读可写可操作
+            os.chmod('/video/', 0o777)
             os.chdir(os.path.dirname(os.path.realpath(__file__)))
         except Exception as e:
             nextUrl["status"] = "error"

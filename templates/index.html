@@ -210,7 +210,7 @@
                 vm.clearing = true;
                 axios.get("/removeFinished")
                     .then(function (response) {
-                        if (response['state'] == "OK") {
+                        if (response.data['state'] == "OK") {
                             vm.showNotify('成功', '已清空所有已完成的任务', vm.success);
                             vm.refresh()
                         }
@@ -238,7 +238,7 @@
                 data.append('videoName', vm.videoName);
                 axios.post("/addToQueue", data)
                     .then(function (response) {
-                        if (response['state'] == "OK") {
+                        if (response.data['state'] == "OK") {
                             vm.showNotify('成功', '扒源任务添加成功', vm.success);
                         }
                         vm.adding = false;
@@ -255,7 +255,7 @@
                 vm.removing = true;
                 axios.get("/remove?id=" + id)
                     .then(function (response) {
-                        if (response['state'] == "OK") {
+                        if (response.data['state'] == "OK") {
                             vm.showNotify('成功', '已删除扒源任务', vm.success);
                             vm.refresh()
                         }
@@ -270,7 +270,7 @@
                 vm.retrying = true;
                 axios.get("/retry?id=" + id)
                     .then(function (response) {
-                        if (response['state'] == "OK") {
+                        if (response.data['state'] == "OK") {
                             vm.showNotify('成功', '任务已开始重试', vm.success);
                             vm.refresh()
                         }
