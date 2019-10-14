@@ -4,6 +4,7 @@ import copy
 import glob
 import json
 import os
+import subprocess
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
@@ -128,11 +129,9 @@ class ClearCompleteHandler(RequestHandler):
 
     def get(self):
         global downloadQueue
-        newDownloadQueue = copy.copy(downloadQueue)
         for mission in downloadQueue:
             if mission["status"] == "completed":
                 downloadQueue.remove(mission)
-        downloadQueue = newDownloadQueue
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.finish('{"state":"OK"}')
 
@@ -215,7 +214,7 @@ def doDownload():
                 ydl.download([nextUrl["url"]])
             nextUrl["status"] = "completed"
             # 将video的所有人的权限改为可读可写可操作
-            os.chmod('/video/', 0o777)
+            subprocess.call("chmod -R 777 /video/", shell=True)
             os.chdir(os.path.dirname(os.path.realpath(__file__)))
         except Exception as e:
             nextUrl["status"] = "error"
