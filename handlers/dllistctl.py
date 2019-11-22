@@ -26,8 +26,7 @@ class DownloadQueueHandler(RequestHandler):
     def get(self):
         global downloadQueue
         for mission in downloadQueue:
-            if mission["status"] == "error":
-                mission["error"] = str(mission["error"])
+            mission["error"] = str(mission["error"])
         chunk = escape.json_encode(downloadQueue)
         self.set_header("Content-Type", "application/json; charset=UTF-8")
         self.finish(chunk)
